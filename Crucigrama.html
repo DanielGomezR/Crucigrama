@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crucigrama de Boda</title>
+    <style>
+        :root {
+            --bg-color: #a21733;
+            --text-color: #ffdddd;
+            --cell-size: 45px;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, p { text-align: center; }
+        h1 { margin-bottom: 5px; }
+        p { margin-bottom: 30px; font-size: 1.1em; max-width: 600px; }
+
+        .crossword-container {
+            display: grid;
+            grid-template-columns: repeat(12, var(--cell-size));
+            grid-template-rows: repeat(18, var(--cell-size));
+            gap: 4px;
+            position: relative;
+            margin-bottom: 30px;
+            max-width: 100%;
+            overflow-x: auto;
+            padding: 10px;
+        }
+
+        .cell-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .cell {
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            border: 2px solid var(--text-color);
+            color: var(--text-color);
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            text-transform: uppercase;
+            box-sizing: border-box;
+            border-radius: 4px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .cell:focus {
+            background-color: rgba(255, 221, 221, 0.2);
+            box-shadow: 0 0 8px var(--text-color);
+        }
+
+        .cell.static {
+            background-color: rgba(255, 221, 221, 0.15);
+            border: 2px dashed var(--text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
+        }
+
+        .cell.separator {
+            background-color: #ffffff;
+            border: 2px solid #ffffff;
+            cursor: default;
+        }
+
+        .cell.correct {
+            background-color: rgba(0, 255, 100, 0.3);
+            border-color: #90ee90;
+        }
+
+        .cell.error {
+            background-color: rgba(255, 0, 0, 0.3);
+        }
+
+        .number {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--text-color);
+            pointer-events: none;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s, opacity 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #fff;
+            transform: scale(1.05);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #message {
+            font-size: 1.2em;
+            font-weight: bold;
+            min-height: 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Crucigrama de Boda</h1>
+    <p>Descubre la frase secreta uniendo las letras centrales de cada palabra.</p>
+
+    <div class="crossword-container" id="grid"></div>
+
+    <div class="actions">
+        <button id="btnHint">Pedir Pista</button>
+        <button id="btnValidate">Validar Respuestas</button>
+    </div>
+    <div id="message"></div>
+
+    <script>
+        const gridData = [
+            // Fila 1: EQUIPO (E)
+            {r: 1, c: 6, val: 'E', num: 1, type: 'input'}, {r: 1, c: 7, val: 'Q', type: 'input'}, {r: 1, c: 8, val: 'U', type: 'input'}, {r: 1, c: 9, val: 'I', type: 'input'}, {r: 1, c: 10, val: 'P', type: 'input'}, {r: 1, c: 11, val: 'O', type: 'input'},
+            // Fila 2: L (static) -> Fin de "EL"
+            {r: 2, c: 6, val: 'L', type: 'static'},
+            // Fila 3: Separador Blanco
+            {r: 3, c: 6, type: 'separator'},
+            // Fila 4: N (static) -> Inicio de "NOS"
+            {r: 4, c: 6, val: 'N', type: 'static'},
+            // Fila 5: BODA (O)
+            {r: 5, c: 5, val: 'B', num: 2, type: 'input'}, {r: 5, c: 6, val: 'O', type: 'input'}, {r: 5, c: 7, val: 'D', type: 'input'}, {r: 5, c: 8, val: 'A', type: 'input'},
+            // Fila 6: JESUS (S) -> Fin de "NOS"
+            {r: 6, c: 4, val: 'J', num: 3, type: 'input'}, {r: 6, c: 5, val: 'E', type: 'input'}, {r: 6, c: 6, val: 'S', type: 'input'}, {r: 6, c: 7, val: 'U', type: 'input'}, {r: 6, c: 8, val: 'S', type: 'input'},
+            // Fila 7: Separador Blanco
+            {r: 7, c: 6, type: 'separator'},
+            // Fila 8: FAMILIA (A) -> Inicio de "AMÓ"
+            {r: 8, c: 5, val: 'F', num: 4, type: 'input'}, {r: 8, c: 6, val: 'A', type: 'input'}, {r: 8, c: 7, val: 'M', type: 'input'}, {r: 8, c: 8, val: 'I', type: 'input'}, {r: 8, c: 9, val: 'L', type: 'input'}, {r: 8, c: 10, val: 'I', type: 'input'}, {r: 8, c: 11, val: 'A', type: 'input'},
+            // Fila 9: M (static)
+            {r: 9, c: 6, val: 'M', type: 'static'},
+            // Fila 10: O (static) -> Fin de "AMÓ"
+            {r: 10, c: 6, val: 'O', type: 'static'},
+            // Fila 11: Separador Blanco
+            {r: 11, c: 6, type: 'separator'},
+            // Fila 12: POKEMON (P) -> Inicio de "PRIMERO"
+            {r: 12, c: 6, val: 'P', num: 5, type: 'input'}, {r: 12, c: 7, val: 'O', type: 'input'}, {r: 12, c: 8, val: 'K', type: 'input'}, {r: 12, c: 9, val: 'E', type: 'input'}, {r: 12, c: 10, val: 'M', type: 'input'}, {r: 12, c: 11, val: 'O', type: 'input'}, {r: 12, c: 12, val: 'N', type: 'input'},
+            // Fila 13: ABRIL (R)
+            {r: 13, c: 4, val: 'A', num: 6, type: 'input'}, {r: 13, c: 5, val: 'B', type: 'input'}, {r: 13, c: 6, val: 'R', type: 'input'}, {r: 13, c: 7, val: 'I', type: 'input'}, {r: 13, c: 8, val: 'L', type: 'input'},
+            // Fila 14: ANILLO (I)
+            {r: 14, c: 4, val: 'A', num: 7, type: 'input'}, {r: 14, c: 5, val: 'N', type: 'input'}, {r: 14, c: 6, val: 'I', type: 'input'}, {r: 14, c: 7, val: 'L', type: 'input'}, {r: 14, c: 8, val: 'L', type: 'input'}, {r: 14, c: 9, val: 'O', type: 'input'},
+            // Fila 15: DICIEMBRE (M)
+            {r: 15, c: 1, val: 'D', num: 8, type: 'input'}, {r: 15, c: 2, val: 'I', type: 'input'}, {r: 15, c: 3, val: 'C', type: 'input'}, {r: 15, c: 4, val: 'I', type: 'input'}, {r: 15, c: 5, val: 'E', type: 'input'}, {r: 15, c: 6, val: 'M', type: 'input'}, {r: 15, c: 7, val: 'B', type: 'input'}, {r: 15, c: 8, val: 'R', type: 'input'}, {r: 15, c: 9, val: 'E', type: 'input'},
+            // Fila 16: NUEVE (E)
+            {r: 16, c: 4, val: 'N', num: 9, type: 'input'}, {r: 16, c: 5, val: 'U', type: 'input'}, {r: 16, c: 6, val: 'E', type: 'input'}, {r: 16, c: 7, val: 'V', type: 'input'}, {r: 16, c: 8, val: 'E', type: 'input'},
+            // Fila 17: R (static)
+            {r: 17, c: 6, val: 'R', type: 'static'},
+            // Fila 18: O (static)
+            {r: 18, c: 6, val: 'O', type: 'static'}
+        ];
+
+        class CrosswordGame {
+            constructor(data) {
+                this.gridData = data;
+                this.gridElement = document.getElementById('grid');
+                this.btnHint = document.getElementById('btnHint');
+                this.btnValidate = document.getElementById('btnValidate');
+                this.msgElement = document.getElementById('message');
+                
+                this.initialize();
+            }
+
+            initialize() {
+                this.renderGrid();
+                this.attachEvents();
+            }
+
+            renderGrid() {
+                this.gridData.forEach((data, index) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'cell-wrapper';
+                    wrapper.style.gridRow = data.r;
+                    wrapper.style.gridColumn = data.c;
+
+                    if (data.num) {
+                        const numSpan = document.createElement('span');
+                        numSpan.className = 'number';
+                        numSpan.innerText = data.num;
+                        wrapper.appendChild(numSpan);
+                    }
+
+                    if (data.type === 'input') {
+                        wrapper.appendChild(this.createInputCell(data));
+                    } else if (data.type === 'static') {
+                        wrapper.appendChild(this.createStaticCell(data));
+                    } else if (data.type === 'separator') {
+                        wrapper.appendChild(this.createSeparatorCell());
+                    }
+
+                    this.gridElement.appendChild(wrapper);
+                });
+            }
+
+            createInputCell(data) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'cell input-cell';
+                input.maxLength = 1;
+                input.dataset.answer = data.val;
+                
+                input.addEventListener('input', () => {
+                    input.value = input.value.toUpperCase();
+                    input.classList.remove('error', 'correct');
+                    
+                    if (input.value.length === 1) {
+                        const inputs = document.querySelectorAll('input.cell');
+                        const nextInput = Array.from(inputs).find((_, i) => i > Array.from(inputs).indexOf(input));
+                        if (nextInput) nextInput.focus();
+                    }
+                });
+                return input;
+            }
+
+            createStaticCell(data) {
+                const staticDiv = document.createElement('div');
+                staticDiv.className = 'cell static hidden-hint';
+                staticDiv.dataset.answer = data.val;
+                staticDiv.innerText = '';
+                return staticDiv;
+            }
+
+            createSeparatorCell() {
+                const separatorDiv = document.createElement('div');
+                separatorDiv.className = 'cell separator';
+                return separatorDiv;
+            }
+
+            attachEvents() {
+                this.btnHint.addEventListener('click', () => this.revealRandomHint());
+                this.btnValidate.addEventListener('click', () => this.validateAnswers());
+            }
+
+            revealRandomHint() {
+                const hiddenHints = document.querySelectorAll('.hidden-hint');
+                if (hiddenHints.length === 0) return;
+
+                const randomIndex = Math.floor(Math.random() * hiddenHints.length);
+                const selectedCell = hiddenHints[randomIndex];
+
+                selectedCell.innerText = selectedCell.dataset.answer;
+                selectedCell.classList.remove('hidden-hint');
+
+                if (hiddenHints.length === 1) {
+                    this.btnHint.disabled = true;
+                }
+            }
+
+            validateAnswers() {
+                const inputs = document.querySelectorAll('input.cell');
+                let allCorrect = true;
+                let allFilled = true;
+
+                inputs.forEach(input => {
+                    input.classList.remove('error', 'correct');
+                    const val = input.value.toUpperCase();
+                    
+                    if (!val) {
+                        allFilled = false;
+                    } else if (val === input.dataset.answer) {
+                        input.classList.add('correct');
+                    } else {
+                        input.classList.add('error');
+                        allCorrect = false;
+                    }
+                });
+
+                this.updateMessage(allFilled, allCorrect);
+            }
+
+            updateMessage(allFilled, allCorrect) {
+                if (!allFilled) {
+                    this.msgElement.innerText = "¡Aún faltan letras por llenar!";
+                    this.msgElement.style.color = "#ffdddd";
+                } else if (allCorrect) {
+                    this.msgElement.innerText = "¡Felicidades! Completaste el crucigrama: ÉL NOS AMÓ PRIMERO.";
+                    this.msgElement.style.color = "#90ee90";
+                } else {
+                    this.msgElement.innerText = "Hay algunas letras incorrectas. ¡Sigue intentando!";
+                    this.msgElement.style.color = "#ffdddd";
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new CrosswordGame(gridData);
+        });
+    </script>
+</body>
+</html>
